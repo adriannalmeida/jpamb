@@ -71,14 +71,13 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             else:
                 frame.pc += 1
 
-        case jvm.Return(type=t):
-            if t is not None:
-                raise NotImplementedError("Still to be done")
-
+        case jvm.Return(type=jvm.Int()):
+            v1 = frame.stack.pop()
             state.frames.pop()
-
             if state.frames:
-                raise NotImplementedError("Still to be done")
+                frame = state.frames.peek()
+                frame.stack.push(v1)
+                frame.pc += 1
             else:
                 output = "ok"
 
@@ -94,6 +93,11 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             # Hack -- if we create an assertion error, we probably also throw it.
             output = "assertion error"
         
+        case jvm.Load(type=jvm.Int(), index=n):
+            v = frame.locals[n]
+            frame.stack.push(v)
+            frame.pc += 1
+
 
         case a:
             raise NotImplementedError(a.help())
