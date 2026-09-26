@@ -80,6 +80,13 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                 frame.pc += 1
             else:
                 output = "ok"
+        case jvm.Return(type=jvm.Void()):
+            state.frames.pop()
+            if state.frames:
+                frame = state.frames.peek()
+                frame.pc += 1
+            else:
+                output = "ok"
 
         case jvm.Get(static=True, field=field):
             # Hack - Only handle the assertion case
@@ -98,6 +105,17 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             frame.stack.push(v)
             frame.pc += 1
 
+        case jvm.If(condition = op, target=target):
+            v1 = frame.stack.pop()
+            v2 = frame.stack.pop()
+            assert isinstance(v1, jvmc.StackInt), f"expected int, but got {v1}"
+            assert isinstance(v2, jvmc.StackInt), f"expected int, but got {v2}"
+
+            if compare(op, v1.value, v2.value):
+                frame.pc %= target
+            else:
+                frame.pc += 1
+                output = "ok"
 
         case a:
             raise NotImplementedError(a.help())
