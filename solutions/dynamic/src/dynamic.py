@@ -19,6 +19,11 @@ def binary(op, v1: int, v2: int) -> int | str:
             return v1 - v2
         case jvm.BinaryOpr.Mul:
             return v1 * v2
+        case jvm.BinaryOpr.Rem:
+            try:
+                return v1 % v2
+            except ZeroDivisionError:
+                return "divide by zero"
         case a:
             raise NotImplementedError(f"Unhandled binary {op!r}")
 
@@ -222,6 +227,16 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
         
         case jvm.Goto(target=target):
             frame.pc %= target
+        
+        case jvm.InvokeStatic(method=method):
+            new_frame = jvmc.Frame.from_method(bc.getmethod(method))
+
+            caller = state.frames.peek()
+
+            if method.extension.params:
+                arg = caller.stack.pop()
+                new_frame.locals[0] = arg
+            state.frames.push(new_frame)
 
 
         case a:
