@@ -26,7 +26,7 @@ def compare(op, v1: int, v2: int) -> bool:
         case jvm.CmpOpr.Lt:
             return v1 < v2
         case jvm.CmpOpr.Le:
-            return v<= v2
+            return v1 <= v2
         case jvm.CmpOpr.Gt:
             return v1 > v2
         case jvm.CmpOpr.Ge:
@@ -80,7 +80,7 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
                 frame.pc += 1
             else:
                 output = "ok"
-        case jvm.Return(type=jvm.Void()):
+        case jvm.Return(type=None):
             state.frames.pop()
             if state.frames:
                 frame = state.frames.peek()
@@ -100,6 +100,11 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             # Hack -- if we create an assertion error, we probably also throw it.
             output = "assertion error"
         
+        case jvm.Load(index=n):
+            value = frame.locals[n]
+            frame.stack.push(value)
+            frame.pc += 1
+        
         case jvm.Load(type=jvm.Int(), index=n):
             v = frame.locals[n]
             frame.stack.push(v)
@@ -111,11 +116,89 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             assert isinstance(v1, jvmc.StackInt), f"expected int, but got {v1}"
             assert isinstance(v2, jvmc.StackInt), f"expected int, but got {v2}"
 
-            if compare(op, v1.value, v2.value):
+            if compare(op, v2.value, v1.value):
                 frame.pc %= target
             else:
                 frame.pc += 1
-                output = "ok"
+                #output = "ok"
+
+        case jvm.NewArray(type=jvm.Int()):
+            v1 = frame.stack.pop()
+            assert isinstance(v1, jvmc.StackInt), f"expected int, but got {v1}"
+
+            ref = state.heap.new(jvmc.HeapArray(jvm.Int(), [0] * v1.value))
+            frame.stack.push(ref)
+            frame.pc += 1
+        
+        case jvm.Dup(words=1):
+            v = frame.stack.pop()
+            frame.stack.push(v)
+            frame.stack.push(v)
+            frame.pc += 1
+        
+        case jvm.ArrayStore(type=jvm.Int()):
+            v = frame.stack.pop()
+            index = frame.stack.pop()
+            arrayR = frame.stack.pop()
+
+            assert isinstance(v, jvmc.StackInt)
+            assert isinstance(index, jvmc.StackInt)
+            assert isinstance(arrayR, jvmc.StackReference)
+
+            array = state.heap[arrayR]
+            assert isinstance(array, jvmc.HeapArray)
+            array.values[index.value] = v.value
+
+            frame.pc += 1
+        
+
+        case jvm.Store(index=n):
+            v = frame.stack.pop()
+            frame.locals[n] = v
+            frame.pc += 1
+        
+        case jvm.ArrayLength():
+            arrayR = frame.stack.pop()
+            assert isinstance(arrayR, jvmc.StackReference)
+            array = state.heap[arrayR]
+            assert isinstance(array, jvmc.HeapArray)
+            frame.stack.push(jvmc.StackInt(len(array.values)))
+            frame.pc += 1
+        
+        case jvm.ArrayLoad(type=jvm.Int()):
+            index = frame.stack.pop()
+            arrayR = frame.stack.pop()
+
+            assert isinstance(index, jvmc.StackInt)
+            assert isinstance(arrayR, jvmc.StackReference)
+
+            array = state.heap[arrayR]
+            assert isinstance(array, jvmc.HeapArray)
+
+            frame.stack.push(jvmc.StackInt(array.values[index.value]))
+            frame.pc += 1  
+        
+        case jvm.Incr(index=n, amount=a):
+            v = frame.locals[n]
+            assert isinstance(v, jvmc.StackInt)
+            frame.locals[n] = jvmc.StackInt(v.value + a)
+            frame.pc += 1
+        
+        case jvm.Goto(target=target):
+            frame.pc %= target
+        
+        case jvm.Push(type=t, value=v):
+            if t is jvm.Int():
+                frame.stack.push(jvmc.StackInt(v))
+            elif t is jvm.Reference():
+                assert isinstance(v, int)
+                frame.stack.push(jvmc.StackReference(v))
+            else:
+                raise NotImplementedError(f"Unsupported push type: {t!r}")
+
+            frame.pc += 1
+ 
+
 
         case a:
             raise NotImplementedError(a.help())
