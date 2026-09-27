@@ -13,6 +13,12 @@ def binary(op, v1: int, v2: int) -> int | str:
                 return v1 // v2
             except ZeroDivisionError:
                 return "divide by zero"
+        case jvm.BinaryOpr.Add:
+            return v1 + v2
+        case jvm.BinaryOpr.Sub:
+            return v1 - v2
+        case jvm.BinaryOpr.Mul:
+            return v1 * v2
         case a:
             raise NotImplementedError(f"Unhandled binary {op!r}")
 
@@ -46,6 +52,9 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
         case jvm.Push(type=t, value=v):
             if t is jvm.Int():
                 frame.stack.push(jvmc.StackInt(v))
+            elif t is jvm.Reference():
+                assert isinstance(v, int)
+                frame.stack.push(jvmc.StackReference(v))
             else:
                 raise NotImplementedError("Error")
             frame.pc += 1
@@ -144,12 +153,18 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             assert isinstance(v, jvmc.StackInt)
             assert isinstance(index, jvmc.StackInt)
             assert isinstance(arrayR, jvmc.StackReference)
+            
+            if arrayR.value == 0:
+                output = "null pointer"
+            else:
+                array = state.heap[arrayR]
+                assert isinstance(array, jvmc.HeapArray)
+                if index.value < 0 or index.value >= len(array.values):
+                    output = "out of bounds"
+                else:
+                    array.values[index.value] = v.value
+                    frame.pc += 1
 
-            array = state.heap[arrayR]
-            assert isinstance(array, jvmc.HeapArray)
-            array.values[index.value] = v.value
-
-            frame.pc += 1
         
 
         case jvm.Store(index=n):
@@ -160,23 +175,44 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
         case jvm.ArrayLength():
             arrayR = frame.stack.pop()
             assert isinstance(arrayR, jvmc.StackReference)
-            array = state.heap[arrayR]
-            assert isinstance(array, jvmc.HeapArray)
-            frame.stack.push(jvmc.StackInt(len(array.values)))
+            try:
+                array = state.heap[arrayR]
+            except IndexError:
+                output = "null pointer"
+            else:
+            #array = state.heap[arrayR]
+                assert isinstance(array, jvmc.HeapArray)
+                frame.stack.push(jvmc.StackInt(len(array.values)))
             frame.pc += 1
         
-        case jvm.ArrayLoad(type=jvm.Int()):
+        case jvm.ArrayLoad(type=t):
             index = frame.stack.pop()
             arrayR = frame.stack.pop()
 
             assert isinstance(index, jvmc.StackInt)
             assert isinstance(arrayR, jvmc.StackReference)
 
-            array = state.heap[arrayR]
-            assert isinstance(array, jvmc.HeapArray)
+            if arrayR.value == 0:
+                output = "null pointer"
+            else:
+                array = state.heap[arrayR]
+                assert isinstance(array, jvmc.HeapArray)
 
-            frame.stack.push(jvmc.StackInt(array.values[index.value]))
-            frame.pc += 1  
+                if index.value < 0 or index.value >= len(array.values):
+                    output = "out of bounds"
+                else:
+                    value = array.values[index.value]
+
+                    match t:
+                        case jvm.Int():
+                            frame.stack.push(jvmc.StackInt(value))
+                        case jvm.Char():
+                            frame.stack.push(jvmc.StackInt(value))
+                        case _:
+                             raise NotImplementedError("Error Array Load")
+
+                    frame.pc += 1
+  
         
         case jvm.Incr(index=n, amount=a):
             v = frame.locals[n]
@@ -186,18 +222,6 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
         
         case jvm.Goto(target=target):
             frame.pc %= target
-        
-        case jvm.Push(type=t, value=v):
-            if t is jvm.Int():
-                frame.stack.push(jvmc.StackInt(v))
-            elif t is jvm.Reference():
-                assert isinstance(v, int)
-                frame.stack.push(jvmc.StackReference(v))
-            else:
-                raise NotImplementedError(f"Unsupported push type: {t!r}")
-
-            frame.pc += 1
- 
 
 
         case a:
