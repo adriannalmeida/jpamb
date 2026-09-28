@@ -85,13 +85,26 @@ def step(bc: jpamb.Bytecode, state: jvmc.State) -> tuple[jvmc.PC, jvmc.State | s
             else:
                 frame.pc += 1
 
-        case jvm.Return(type=jvm.Int()):
-            v1 = frame.stack.pop()
+        case jvm.Return(type=jvm.Reference()):
+            value = frame.stack.pop()
+            assert isinstance(value, jvmc.StackReference)
+
             state.frames.pop()
             if state.frames:
-                frame = state.frames.peek()
-                frame.stack.push(v1)
-                frame.pc += 1
+                caller = state.frames.peek()
+                caller.stack.push(value)
+                caller.pc += 1
+            else:
+                output = "ok"
+        case jvm.Return(type=jvm.Int()):
+            value = frame.stack.pop()
+            assert isinstance(value, jvmc.StackInt)
+
+            state.frames.pop()
+            if state.frames:
+                caller = state.frames.peek()
+                caller.stack.push(value)
+                caller.pc += 1
             else:
                 output = "ok"
         case jvm.Return(type=None):
@@ -283,7 +296,7 @@ def interpret():
     methodid, input, max_steps = jpamb.getcase(
         "dynamic",
         "1.0",
-        "The Rice Theorem Cookers",
+        "Hello",
         ["dynamic", "python"],
         for_science=True,
     )
@@ -309,9 +322,21 @@ def fuzz_input(rand: random.Random, methodid: jvm.AbsMethodID) -> jpamb.case.Inp
     for p in methodid.extension.params:
         match p:
             case jvm.Int():
-                input.append(jpamb.case.Int(rand.randint(-(1 << 31), 1 << 31)))
+                input.append(jpamb.case.Int(rand.randint(-1, 8)))
             case jvm.Boolean():
                 input.append(jpamb.case.Boolean(1 == rand.randint(0, 1)))
+            
+            case jvm.Array(contains=jvm.Int()):
+                length = rand.randint(0, 8)
+                values = tuple(rand.randint(-20, 20) for _ in range(length))
+                input.append(jpamb.case.Array(jvm.Int(), values))
+            case jvm.Array(contains=jvm.Char()):
+                choices = [(), ("x",), tuple("hello")]
+                values = rand.choice(choices)
+                input.append(jpamb.case.Array(jvm.Char(), values))
+                        
+            
+            
             case a:
                 raise NotImplementedError(
                     "Don't know how to create random values for {input}"
@@ -326,7 +351,7 @@ def analyse():
     methodid = jpamb.getmethodid(
         "dynamic",
         "1.0",
-        "The Rice Theorem Cookers",
+        "Hello",
         ["dynamic", "python"],
         for_science=True,
     )
@@ -359,5 +384,10 @@ def analyse():
                 print(f"{query};timeout")
             else:
                 print(f"{query};found")
+            
+            if len(input.values) == 0:
+                print(f"{query};no")
+            else:
+                print(f"{query};not-found")
         else:
             print(f"{query};not-found")
