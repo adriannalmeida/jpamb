@@ -5,6 +5,7 @@ from hypothesis import strategies as st
 
 import jvm
 import jvm.state as jvms
+import math
 
 
 def st_i32():
@@ -48,6 +49,26 @@ def arithmetic(opr, x, y):
     match opr:
         case jvm.BinaryOpr.Add:
             return jvms.StackInt(x.value + y.value)
+
+        case jvm.BinaryOpr.Sub:
+            return jvms.StackInt(x.value - y.value)
+        case jvm.BinaryOpr.Mul:
+            return jvms.StackInt(x.value * y.value)
+        case jvm.BinaryOpr.Div:
+            try:
+                v = x.value / y.value
+                return jvms.StackInt(math.ceil(v) if v < 0 else math.floor(v))
+            except:
+                #print("divide by zero error")
+                return
+
+        case jvm.BinaryOpr.Rem:
+            try:
+                v = x.value % y.value
+                return jvms.StackInt(math.ceil(v) if v < 0 else math.floor(v))
+            except:
+                #print("divide by zero error")
+                return
         case _:
             raise NotImplementedError("TODO")
 

@@ -171,6 +171,8 @@ class SignSet(Abstraction, Lattice):
     def abstract(cls, values: Iterable[jvms.StackValue]) -> Self:
         signs = set()
         for value in values:
+            if value == None:
+                continue
             signs.add(to_sign(value))
         return cls(frozenset(signs))
 
@@ -227,20 +229,57 @@ class SignSet(Abstraction, Lattice):
                         output.update([0, 1])    
 
                 if 0 in self.signs:
-                    output.add(other.signs * -1)
+                    for s in other.signs:
+                        output.add(s* -1)
+
+                return (SignSet(output), set())
+                
             case jvm.BinaryOpr.Mul:
+                output = set()
                 if 0 in self.signs or 0 in other.signs:
                     output.add(0)
                 if 1 in self.signs:
                     output.add(1)
                     if -1 in other.signs:
-                        ouput.update[(-1)]
+                        output.update([-1])
                 if -1 in self.signs:
                     output.add(-1)
                     if -1 in other.signs:
-                        ouput.update[(1)]
+                        output.update([1])
+                return (SignSet(output), set())
+                
+            case jvm.BinaryOpr.Div:
+                output = set()
+                error = set()
+                if 0 in other.signs:
+                    error.add("division by zero")
+                if 0 in self.signs:
+                    output.add(0)
+                if 1 in self.signs:
+                    output.add(1)
+                    if -1 in other.signs:
+                        output.update([-1])
+                if -1 in self.signs:
+                    output.add(-1)
+                    if -1 in other.signs:
+                     output.update([1])
 
+                output.add(0)
+                return (SignSet(output), error)
 
+            case jvm.BinaryOpr.Rem:
+                output = set()
+                error = set()
+                output.add(0)
+                if 0 in other.signs:
+                    error.add("rest division by zero")
+                if 0 in self.signs:
+                    output.add(0)
+                if -1 in other.signs:
+                    output.add(-1)
+                if 1 in other.signs:
+                    output.add(1)
+                return (SignSet(output), error)
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
 
@@ -257,6 +296,64 @@ class SignSet(Abstraction, Lattice):
                             cases.add(True)
                         if x >= y:
                             cases.add(False)
+                return cases
+            
+            case jvm.CmpOpr.Ge:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0 or y == 0:
+                            cases.add(x >= y)
+                            continue
+                        if x <= y:
+                            cases.add(False)
+                        if x >= y:
+                            cases.add(True)
+                return cases
+            
+            case jvm.CmpOpr.Lt:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0 or y == 0:
+                            cases.add(x < y)
+                            continue
+                        if x < y:
+                            cases.add(True)
+                        if x >= y:
+                            cases.add(False)
+                return cases
+
+            case jvm.CmpOpr.Gt:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == 0 or y == 0:
+                            cases.add(x > y)
+                            continue
+                        if x <= y:
+                            cases.add(False)
+                        if x > y:
+                            cases.add(True)
+                return cases
+
+            case jvm.CmpOpr.Eq:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == y:
+                            cases.add(True)
+                        if x!= y:
+                            cases.add(False)
+                return cases
+            case jvm.CmpOpr.Ne:
+                cases = set()
+                for x in self.signs:
+                    for y in other.signs:
+                        if x == y:
+                            cases.add(False)
+                        if x!= y:
+                            cases.add(True)
                 return cases
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
