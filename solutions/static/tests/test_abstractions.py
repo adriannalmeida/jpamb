@@ -53,7 +53,7 @@ def arithmetic(opr, x, y):
 
 
 @given(
-    st.sampled_from([jvm.BinaryOpr.Add]),
+    st.sampled_from(jvm.BinaryOpr),
     st.sets(st_stack_ints()),
     st.sets(
         st_stack_ints(),

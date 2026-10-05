@@ -193,9 +193,9 @@ class SignSet(Abstraction, Lattice):
 
         return SignSet(self.signs & other.signs)
 
-    def arithmetic(self, other: "SignSet", opr: jvm.BinaryOpr) -> tuple(
+    def arithmetic(self, other: "SignSet", opr: jvm.BinaryOpr) -> tuple[
         "SignSet", set[str]
-    ):
+    ]:
         match opr:
             case jvm.BinaryOpr.Add:
                 output = set()
@@ -213,6 +213,34 @@ class SignSet(Abstraction, Lattice):
                     output.update(other.signs)
 
                 return (SignSet(output), set())
+
+            case jvm.BinaryOpr.Sub:
+                output = set()
+                if 1 in self.signs:
+                    output.add(1)
+                    if 1 in other.signs:
+                        output.update([0, -1])
+
+                if -1 in self.signs:
+                    output.add(-1)
+                    if -1 in other.signs:
+                        output.update([0, 1])    
+
+                if 0 in self.signs:
+                    output.add(other.signs * -1)
+            case jvm.BinaryOpr.Mul:
+                if 0 in self.signs or 0 in other.signs:
+                    output.add(0)
+                if 1 in self.signs:
+                    output.add(1)
+                    if -1 in other.signs:
+                        ouput.update[(-1)]
+                if -1 in self.signs:
+                    output.add(-1)
+                    if -1 in other.signs:
+                        ouput.update[(1)]
+
+
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
 
