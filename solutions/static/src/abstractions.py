@@ -224,22 +224,27 @@ class SignSet(Abstraction, Lattice):
                 if -1 in self.signs:
                     output.add(-1)
                     if -1 in other.signs:
-                        output.update([0, 1])    
+                        output.update([0, 1])
 
                 if 0 in self.signs:
-                    output.add(other.signs * -1)
+                    for s in other.signs:
+                        output.add(s * -1)
+
+                return (SignSet(output), set())
+
             case jvm.BinaryOpr.Mul:
+                output = set()
                 if 0 in self.signs or 0 in other.signs:
                     output.add(0)
                 if 1 in self.signs:
                     output.add(1)
                     if -1 in other.signs:
-                        ouput.update[(-1)]
+                        output.update([-1])
                 if -1 in self.signs:
                     output.add(-1)
                     if -1 in other.signs:
-                        ouput.update[(1)]
-
+                        output.update([1])
+                return (SignSet(output), set())
 
             case _:
                 raise NotImplementedError(f"TODO: {opr}")
