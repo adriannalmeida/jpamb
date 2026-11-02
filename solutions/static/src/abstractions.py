@@ -252,7 +252,7 @@ class SignSet(Abstraction, Lattice):
                 output = set()
                 error = set()
                 if 0 in other.signs:
-                    error.add("division by zero")
+                    error.add("divide by zero")
                 if 0 in self.signs:
                     output.add(0)
                 if 1 in self.signs:
@@ -272,7 +272,7 @@ class SignSet(Abstraction, Lattice):
                 error = set()
                 output.add(0)
                 if 0 in other.signs:
-                    error.add("rest division by zero")
+                    error.add("divide by zero")
                 if 0 in self.signs:
                     output.add(0)
                 if -1 in other.signs:

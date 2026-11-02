@@ -9,7 +9,7 @@ import math
 
 
 def st_i32():
-    return st.integers(min_value=-(2**31) - 1, max_value=2**31)
+    return st.integers(min_value=-(2**31), max_value=2**31 - 1)
 
 
 def st_u32():
